@@ -1,0 +1,12 @@
+#/bin/bash
+#Convert Padders' album format of [Artist]/[Album]/<tracks> to [Artist-Album]/<tracks>
+
+
+for d in */; do
+	r=$(echo "$d" | grep -o "-")
+	echo "$r"
+	if [[ "$r" == "" ]]; then
+		x=$(normalise "$d")
+		echo "$x"
+	fi
+done

@@ -1,0 +1,76 @@
+#!/bin/bash
+#Run this in a directory of folders full of music and for each folder it will:
+# Enter the folder
+# Check if folder.jpg or folder.png exists. if not it will:
+# Try to resolve the folder name to a music brains ID
+# Use that ID to get and download album art
+#
+# If it fails for any reason it'll move on to the next folder, then at the end spit out a list of failed folders for you to do manually
+# 
+# Folder name format should be artist_name-album_name
+
+
+function cleanup() {
+	in="$1"
+	in="${in//\//}"
+	in="${in//"_"/" "}"
+	echo "$in"
+}
+
+function releaseToMBID() {
+	release="$1"
+	artist="$2"
+	artist="${artist//" "/%20}"
+	release="${release//" "/%20}"
+	mbid=$(curl -s -H "Accept:application/json" 'https://musicbrainz.org/ws/2/release/?query=release:'"$release"'%20AND%20artist:'"$artist"'&limit=1' | jq .releases[0].id)
+	echo "$mbid"
+}
+function mbidToCoverURL() {
+	m="$1"
+	m=${m//'"'/}
+	u="$(curl -s -L https://coverartarchive.org/release/$m | jq .images[0].image)"
+	u=${u//'"'/}
+	echo $u
+}
+	
+unhappylist=""
+for d in */; do
+	artist="$(echo "$d" | cut -d "-" -f 1)"
+	album="$(echo "$d" | cut -d "-" -f 2-)"
+	artist="$(cleanup "$artist")"
+	album="$(cleanup "$album")"
+
+	echo "Check '$album' by '$artist'"
+	cd "$d"
+	if [[ -f "folder.jpg" || -f "folder.png" ]]; then
+		echo "OK"
+	else
+		happy=true
+		echo "Missing"
+		echo "- Resolve album data to MBID"
+		m=$(releaseToMBID "$album" "$artist")
+		r=$?; if [[ "$r" != "0" ]]; then happy=false; exit 1; fi
+		echo "- Get cover art for $m"
+		a=$(mbidToCoverURL "$m")
+		r=$?; if [[ "$r" != "0" ]]; then happy=false; exit 1; fi
+
+		if [[ "$a" != "" ]]; then
+			echo "- Download $a"
+			wget "$a" -O folder.jpg
+			r=$?; if [[ "$r" != "0" ]]; then happy=false; exit 1; fi
+		else
+			echo "No art available"
+			happy=false
+		fi
+	
+		if [[ "$happy" == true ]]; then
+			echo "- Success"
+		else
+			unhappylist="${unhappylist}\n${album} by ${artist}"
+		fi
+		sleep 2
+	fi
+	cd ..
+done
+
+echo "Finished. Please manually find covers for: $unhappylist"

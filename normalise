@@ -1,0 +1,31 @@
+#!/bin/bash
+# Replace spaces with underscores in all dirs
+# Also moves up a folder and concatenates names
+# I.e. a/b/<files> would move to a-b/<files>
+
+
+# This script is called by normalisePadders
+
+function fix() {
+	str="$1"
+	str="${str//" "/"_"}"
+	echo "$str"
+}
+
+
+cd "$1"
+
+ogprevdir=$(basename "$(pwd)")
+prevdir=$(fix "$ogprevdir")
+echo $prevdir
+
+for dir in */; do
+	d=$(fix "$dir")
+	d="$prevdir"-"$d"
+	mv "$dir" "$d"
+	echo "$d"
+done
+mv * ..
+cd ..
+rmdir "$ogprevdir"
+
